@@ -100,8 +100,11 @@ def crear_dataset(df: pd.DataFrame) -> pd.DataFrame:
 
     df.drop(['company', 'description', 'categories', 'founders', 'year', 'investors', 'amounts_raised', 'address', 'city', 'state', 'country', 'amount', 'logo', 'website'],axis=1,inplace=True)
     
-    return df
+    for col in ['status', 'session', 'territorio', 'bienes_raíces_legal_y_hospitalidad', 
+                'comercio_y_negocios', 'educación_y_empleo', 'eventos_y_viajes', 'finanzas_y_seguros', 'logística_y_transporte', 'medios_y_entretenimiento', 'otro', 'redes_sociales_y_comunicación',  'salud_y_bienestar', 'tecnología_y_software']:
+        df[col] = df[col].astype(str)
 
+    return df
 
 # Función para cargar los datos en la base de datos
 def cargar_en_db(df: pd.DataFrame, table_name: str) -> None:
