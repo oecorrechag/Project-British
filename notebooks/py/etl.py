@@ -1,4 +1,5 @@
 import joblib
+import pickle
 import pandas as pd
 import numpy as np
 from sklearn.preprocessing import LabelEncoder
@@ -60,7 +61,6 @@ def transformar_startups(df: pd.DataFrame) -> pd.DataFrame:
     df = df.merge(df_ciudades[['city', 'state', 'country']], on=['city'], how='left', suffixes=('', '_nuevo'))
     df['state'] = df['state'].fillna(df['state_nuevo'])
     df['country'] = df['country'].fillna(df['country_nuevo'])
-    df.drop(columns=['state_nuevo', 'country_nuevo'], inplace=True)
 
     df['id'] = df.index
     df['id'] = df['id'].astype('str')
@@ -68,7 +68,9 @@ def transformar_startups(df: pd.DataFrame) -> pd.DataFrame:
     df.drop(['mapping_location',
              'year_founded',
              'crunchbase_/_angel_list_profile',
-             'seed-db_/_mattermark_profile'],axis=1,inplace=True)
+             'seed-db_/_mattermark_profile', 
+             'state_nuevo', 
+             'country_nuevo'],axis=1,inplace=True)
 
     df = df.loc[:,['id', 'company', 'status', 'description', 'categories', 'founders', 'year',
                    'session', 'investors', 'amounts_raised', 'address', 'city', 'state',
@@ -80,17 +82,19 @@ def transformar_startups(df: pd.DataFrame) -> pd.DataFrame:
 def crear_dataset(df: pd.DataFrame) -> pd.DataFrame:
 
     max_date = df['year'].max() + 1
-    df['territorio'] = df['city'] + ' - ' + df['state'] + ' - ' + df['country']
-    df['territorio'] = label_encoder.fit_transform(df['territorio'])
-    joblib.dump(label_encoder, outputs/'label_encoder.pkl')
 
-    # new_categories = cargar_datos('new_categories')
+    df['country'] = label_encoder.fit_transform(df['country'])
+    with open(outputs/'encoder.pkl', 'wb') as file:
+        pickle.dump(label_encoder, file)
+
     startups_tranformadas_new_cate = cargar_datos('new_categories_pivot')
+    startups_tranformadas_new_cate = startups_tranformadas_new_cate.loc[:,['id', 'tecnología_y_software']]
     startups_tranformadas_new_cate['id'] = startups_tranformadas_new_cate['id'].astype(str)
 
     df = pd.merge(df, startups_tranformadas_new_cate, on=['id'])
 
     df['status'] = np.where(df['status'] == 'Exited', 'Operating', df['status'])
+    
     df['status'] = np.where(df['status'] == 'Operating', 1, 0)
     df['session'] = np.where(df['session'] == 'Summer', 1, 0)
     df['tenure'] = max_date - df['year']
@@ -98,10 +102,12 @@ def crear_dataset(df: pd.DataFrame) -> pd.DataFrame:
     df['amount'] = df['amounts_raised'].apply(amount)
     df[['total_amount', 'inversion_inicial', 'primera_inversion', 'numero_inversiones']] = df['amount'].apply(pd.Series)
 
-    df.drop(['company', 'description', 'categories', 'founders', 'year', 'investors', 'amounts_raised', 'address', 'city', 'state', 'country', 'amount', 'logo', 'website'],axis=1,inplace=True)
+    df['frecuencia_inversiones'] = df['numero_inversiones'] / df['tenure']
+
+    df.drop(['company', 'description', 'categories', 'founders', 'year', 'investors', 'amounts_raised', 
+             'address', 'city', 'state', 'amount', 'logo', 'website'],axis=1,inplace=True) # country
     
-    for col in ['status', 'session', 'territorio', 'bienes_raíces_legal_y_hospitalidad', 
-                'comercio_y_negocios', 'educación_y_empleo', 'eventos_y_viajes', 'finanzas_y_seguros', 'logística_y_transporte', 'medios_y_entretenimiento', 'otro', 'redes_sociales_y_comunicación',  'salud_y_bienestar', 'tecnología_y_software']:
+    for col in ['status', 'session', 'tecnología_y_software', 'country']:
         df[col] = df[col].astype(str)
 
     return df
